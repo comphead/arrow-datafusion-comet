@@ -17,28 +17,35 @@
 
 use crate::ShuffleBlockWriter;
 use arrow::array::RecordBatch;
-use arrow::compute::kernels::coalesce::BatchCoalescer;
 use datafusion::physical_plan::metrics::Time;
 use std::borrow::Borrow;
-use std::io::{Cursor, Seek, SeekFrom, Write};
+use std::io::{Cursor, Seek, Write};
+
+/// Estimates the in-memory size of a RecordBatch in bytes.
+fn batch_memory_size(batch: &RecordBatch) -> usize {
+    batch
+        .columns()
+        .iter()
+        .map(|col| col.get_array_memory_size())
+        .sum()
+}
 
 /// Write batches to writer while using a buffer to avoid frequent system calls.
-/// The record batches were first written by ShuffleBlockWriter into an internal buffer.
-/// Once the buffer exceeds the max size, the buffer will be flushed to the writer.
 ///
-/// Small batches are coalesced using Arrow's [`BatchCoalescer`] before serialization,
-/// producing exactly `batch_size`-row output batches to reduce per-block IPC schema overhead.
-/// The coalescer is lazily initialized on the first write.
+/// Incoming batches are accumulated until their total uncompressed size reaches
+/// `buffer_max_size`, then written through a single compression encoder and Arrow
+/// IPC stream, amortizing encoder allocation, frame overhead, and schema bytes
+/// across multiple batches.
 pub(crate) struct BufBatchWriter<S: Borrow<ShuffleBlockWriter>, W: Write> {
     shuffle_block_writer: S,
     writer: W,
-    buffer: Vec<u8>,
+    /// Reusable buffer for encoding one compressed block.
+    encode_buffer: Vec<u8>,
     buffer_max_size: usize,
-    /// Coalesces small batches into target_batch_size before serialization.
-    /// Lazily initialized on first write to capture the schema.
-    coalescer: Option<BatchCoalescer>,
-    /// Target batch size for coalescing
-    batch_size: usize,
+    /// Accumulated batches waiting to be written as a single block.
+    pending_batches: Vec<RecordBatch>,
+    /// Approximate uncompressed size of pending batches in bytes.
+    pending_size: usize,
 }
 
 impl<S: Borrow<ShuffleBlockWriter>, W: Write> BufBatchWriter<S, W> {
@@ -46,15 +53,14 @@ impl<S: Borrow<ShuffleBlockWriter>, W: Write> BufBatchWriter<S, W> {
         shuffle_block_writer: S,
         writer: W,
         buffer_max_size: usize,
-        batch_size: usize,
     ) -> Self {
         Self {
             shuffle_block_writer,
             writer,
-            buffer: vec![],
+            encode_buffer: vec![],
             buffer_max_size,
-            coalescer: None,
-            batch_size,
+            pending_batches: Vec::new(),
+            pending_size: 0,
         }
     }
 
@@ -64,45 +70,43 @@ impl<S: Borrow<ShuffleBlockWriter>, W: Write> BufBatchWriter<S, W> {
         encode_time: &Time,
         write_time: &Time,
     ) -> datafusion::common::Result<usize> {
-        let coalescer = self
-            .coalescer
-            .get_or_insert_with(|| BatchCoalescer::new(batch.schema(), self.batch_size));
-        coalescer.push_batch(batch.clone())?;
-
-        // Drain completed batches into a local vec so the coalescer borrow ends
-        // before we call write_batch_to_buffer (which borrows &mut self).
-        let mut completed = Vec::new();
-        while let Some(batch) = coalescer.next_completed_batch() {
-            completed.push(batch);
-        }
+        self.pending_size += batch_memory_size(batch);
+        self.pending_batches.push(batch.clone());
 
         let mut bytes_written = 0;
-        for batch in &completed {
-            bytes_written += self.write_batch_to_buffer(batch, encode_time, write_time)?;
+        if self.pending_size >= self.buffer_max_size {
+            bytes_written += self.flush_pending(encode_time, write_time)?;
         }
         Ok(bytes_written)
     }
 
-    /// Serialize a single batch into the byte buffer, flushing to the writer if needed.
-    fn write_batch_to_buffer(
+    /// Write all pending batches as a single compressed block (one encoder, one IPC
+    /// stream) and flush the result to the underlying writer.
+    fn flush_pending(
         &mut self,
-        batch: &RecordBatch,
         encode_time: &Time,
         write_time: &Time,
     ) -> datafusion::common::Result<usize> {
-        let mut cursor = Cursor::new(&mut self.buffer);
-        cursor.seek(SeekFrom::End(0))?;
-        let bytes_written =
-            self.shuffle_block_writer
-                .borrow()
-                .write_batch(batch, &mut cursor, encode_time)?;
-        let pos = cursor.position();
-        if pos >= self.buffer_max_size as u64 {
-            let mut write_timer = write_time.timer();
-            self.writer.write_all(&self.buffer)?;
-            write_timer.stop();
-            self.buffer.clear();
+        if self.pending_batches.is_empty() {
+            return Ok(0);
         }
+
+        // Encode all batches into the reusable encode_buffer as a single block
+        self.encode_buffer.clear();
+        let mut cursor = Cursor::new(&mut self.encode_buffer);
+        let bytes_written = self
+            .shuffle_block_writer
+            .borrow()
+            .write_batches(&self.pending_batches, &mut cursor, encode_time)?;
+
+        self.pending_batches.clear();
+        self.pending_size = 0;
+
+        // Write the encoded block to the underlying writer
+        let mut write_timer = write_time.timer();
+        self.writer.write_all(&self.encode_buffer)?;
+        write_timer.stop();
+
         Ok(bytes_written)
     }
 
@@ -111,26 +115,14 @@ impl<S: Borrow<ShuffleBlockWriter>, W: Write> BufBatchWriter<S, W> {
         encode_time: &Time,
         write_time: &Time,
     ) -> datafusion::common::Result<()> {
-        // Finish any remaining buffered rows in the coalescer
-        let mut remaining = Vec::new();
-        if let Some(coalescer) = &mut self.coalescer {
-            coalescer.finish_buffered_batch()?;
-            while let Some(batch) = coalescer.next_completed_batch() {
-                remaining.push(batch);
-            }
-        }
-        for batch in &remaining {
-            self.write_batch_to_buffer(batch, encode_time, write_time)?;
-        }
+        // Flush all pending batches as a single block
+        self.flush_pending(encode_time, write_time)?;
 
-        // Flush the byte buffer to the underlying writer
+        // Flush the underlying writer
         let mut write_timer = write_time.timer();
-        if !self.buffer.is_empty() {
-            self.writer.write_all(&self.buffer)?;
-        }
         self.writer.flush()?;
         write_timer.stop();
-        self.buffer.clear();
+
         Ok(())
     }
 }

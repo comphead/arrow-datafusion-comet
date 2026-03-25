@@ -81,6 +81,21 @@ impl ShuffleBlockWriter {
     ) -> Result<usize> {
         if batch.num_rows() == 0 {
             return Ok(0);
+        }self.write_batches(std::slice::from_ref(batch), output, ipc_time)
+    }
+
+    /// Writes multiple record batches as a single block: one header, one compression
+    /// frame, and one Arrow IPC stream containing all batches. This amortizes
+    /// encoder allocation, frame overhead, and the IPC schema across batches.
+    /// Returns number of bytes written.
+    pub fn write_batches<W: Write + Seek>(
+        &self,
+        batches: &[RecordBatch],
+        output: &mut W,
+        ipc_time: &Time,
+    ) -> Result<usize> {
+        if batches.is_empty() {
+            return Ok(0);
         }
 
         let mut timer = ipc_time.timer();
@@ -89,17 +104,22 @@ impl ShuffleBlockWriter {
         // write header
         output.write_all(&self.header_bytes)?;
 
+        let schema = batches[0].schema();
         let output = match &self.codec {
             CompressionCodec::None => {
-                let mut arrow_writer = StreamWriter::try_new(output, &batch.schema())?;
-                arrow_writer.write(batch)?;
+                let mut arrow_writer = StreamWriter::try_new(output, &schema)?;
+                for batch in batches {
+                    arrow_writer.write(batch)?;
+                }
                 arrow_writer.finish()?;
                 arrow_writer.into_inner()?
             }
             CompressionCodec::Lz4Frame => {
                 let mut wtr = lz4_flex::frame::FrameEncoder::new(output);
-                let mut arrow_writer = StreamWriter::try_new(&mut wtr, &batch.schema())?;
-                arrow_writer.write(batch)?;
+                let mut arrow_writer = StreamWriter::try_new(&mut wtr, &schema)?;
+                for batch in batches {
+                    arrow_writer.write(batch)?;
+                }
                 arrow_writer.finish()?;
                 wtr.finish().map_err(|e| {
                     DataFusionError::Execution(format!("lz4 compression error: {e}"))
@@ -108,8 +128,10 @@ impl ShuffleBlockWriter {
 
             CompressionCodec::Zstd(level) => {
                 let encoder = zstd::Encoder::new(output, *level)?;
-                let mut arrow_writer = StreamWriter::try_new(encoder, &batch.schema())?;
-                arrow_writer.write(batch)?;
+                let mut arrow_writer = StreamWriter::try_new(encoder, &schema)?;
+                for batch in batches {
+                    arrow_writer.write(batch)?;
+                }
                 arrow_writer.finish()?;
                 let zstd_encoder = arrow_writer.into_inner()?;
                 zstd_encoder.finish()?
@@ -117,8 +139,10 @@ impl ShuffleBlockWriter {
 
             CompressionCodec::Snappy => {
                 let mut wtr = snap::write::FrameEncoder::new(output);
-                let mut arrow_writer = StreamWriter::try_new(&mut wtr, &batch.schema())?;
-                arrow_writer.write(batch)?;
+                let mut arrow_writer = StreamWriter::try_new(&mut wtr, &schema)?;
+                for batch in batches {
+                    arrow_writer.write(batch)?;
+                }
                 arrow_writer.finish()?;
                 wtr.into_inner().map_err(|e| {
                     DataFusionError::Execution(format!("snappy compression error: {e}"))
@@ -152,30 +176,42 @@ pub fn read_ipc_compressed(bytes: &[u8]) -> Result<RecordBatch> {
     match &bytes[0..4] {
         b"SNAP" => {
             let decoder = snap::read::FrameDecoder::new(&bytes[4..]);
-            let mut reader =
+            let reader =
                 unsafe { StreamReader::try_new(decoder, None)?.with_skip_validation(true) };
-            reader.next().unwrap().map_err(|e| e.into())
+            read_all_batches(reader)
         }
         b"LZ4_" => {
             let decoder = lz4_flex::frame::FrameDecoder::new(&bytes[4..]);
-            let mut reader =
+            let reader =
                 unsafe { StreamReader::try_new(decoder, None)?.with_skip_validation(true) };
-            reader.next().unwrap().map_err(|e| e.into())
+            read_all_batches(reader)
         }
         b"ZSTD" => {
             let decoder = zstd::Decoder::new(&bytes[4..])?;
-            let mut reader =
+            let reader =
                 unsafe { StreamReader::try_new(decoder, None)?.with_skip_validation(true) };
-            reader.next().unwrap().map_err(|e| e.into())
+            read_all_batches(reader)
         }
         b"NONE" => {
-            let mut reader =
+            let reader =
                 unsafe { StreamReader::try_new(&bytes[4..], None)?.with_skip_validation(true) };
-            reader.next().unwrap().map_err(|e| e.into())
+            read_all_batches(reader)
         }
         other => Err(DataFusionError::Execution(format!(
             "Failed to decode batch: invalid compression codec: {other:?}"
         ))),
+    }
+}
+
+/// Read all batches from an IPC stream. If there is exactly one batch, return it
+/// directly (no copy). If there are multiple, concatenate them into one.
+fn read_all_batches<R: std::io::Read>(reader: StreamReader<R>) -> Result<RecordBatch> {
+    let schema = reader.schema();
+    let batches: Vec<RecordBatch> = reader.collect::<std::result::Result<Vec<_>, _>>()?;
+    if batches.len() == 1 {
+        Ok(batches.into_iter().next().unwrap())
+    } else {
+        Ok(arrow::compute::concat_batches(&schema, &batches)?)
     }
 }
 

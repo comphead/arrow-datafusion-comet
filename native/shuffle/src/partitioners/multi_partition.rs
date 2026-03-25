@@ -440,13 +440,11 @@ impl MultiPartitionShuffleRepartitioner {
         encode_time: &Time,
         write_time: &Time,
         write_buffer_size: usize,
-        batch_size: usize,
     ) -> datafusion::common::Result<()> {
         let mut buf_batch_writer = BufBatchWriter::new(
             shuffle_block_writer,
             output_data,
             write_buffer_size,
-            batch_size,
         );
         for batch in partition_iter {
             let batch = batch?;
@@ -511,7 +509,6 @@ impl MultiPartitionShuffleRepartitioner {
                     &self.runtime,
                     &self.metrics,
                     self.write_buffer_size,
-                    self.batch_size,
                 )?;
             }
 
@@ -596,7 +593,6 @@ impl ShufflePartitioner for MultiPartitionShuffleRepartitioner {
                     &self.metrics.encode_time,
                     &self.metrics.write_time,
                     self.write_buffer_size,
-                    self.batch_size,
                 )?;
             }
 

@@ -79,7 +79,6 @@ impl PartitionWriter {
         runtime: &RuntimeEnv,
         metrics: &ShufflePartitionerMetrics,
         write_buffer_size: usize,
-        batch_size: usize,
     ) -> datafusion::common::Result<usize> {
         if let Some(batch) = iter.next() {
             self.ensure_spill_file_created(runtime)?;
@@ -89,7 +88,6 @@ impl PartitionWriter {
                     &mut self.shuffle_block_writer,
                     &mut self.spill_file.as_mut().unwrap().file,
                     write_buffer_size,
-                    batch_size,
                 );
                 let mut bytes_written =
                     buf_batch_writer.write(&batch?, &metrics.encode_time, &metrics.write_time)?;

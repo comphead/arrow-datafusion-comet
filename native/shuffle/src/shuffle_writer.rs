@@ -590,7 +590,7 @@ mod test {
     /// writing fewer, larger IPC blocks instead of many small ones.
     #[test]
     #[cfg_attr(miri, ignore)]
-    fn test_batch_coalescing_reduces_size() {
+    fn test_batch_buffering_reduces_size() {
         use crate::writers::BufBatchWriter;
         use arrow::array::Int32Array;
 
@@ -619,7 +619,7 @@ mod test {
         let encode_time = Time::default();
         let write_time = Time::default();
 
-        // Write with coalescing (batch_size=8192)
+        // Write with buffering
         let mut coalesced_output = Vec::new();
         {
             let mut writer = ShuffleBlockWriter::try_new(schema.as_ref(), codec.clone()).unwrap();
@@ -627,7 +627,6 @@ mod test {
                 &mut writer,
                 Cursor::new(&mut coalesced_output),
                 1024 * 1024,
-                8192,
             );
             for batch in &small_batches {
                 buf_writer.write(batch, &encode_time, &write_time).unwrap();
@@ -635,15 +634,14 @@ mod test {
             buf_writer.flush(&encode_time, &write_time).unwrap();
         }
 
-        // Write without coalescing (batch_size=1)
+        // Write without buffering (flush every batch)
         let mut uncoalesced_output = Vec::new();
         {
             let mut writer = ShuffleBlockWriter::try_new(schema.as_ref(), codec.clone()).unwrap();
             let mut buf_writer = BufBatchWriter::new(
                 &mut writer,
                 Cursor::new(&mut uncoalesced_output),
-                1024 * 1024,
-                1,
+                0,
             );
             for batch in &small_batches {
                 buf_writer.write(batch, &encode_time, &write_time).unwrap();
@@ -651,24 +649,24 @@ mod test {
             buf_writer.flush(&encode_time, &write_time).unwrap();
         }
 
-        // Coalesced output should be smaller due to fewer IPC schema blocks
+        // Buffered output should be smaller due to fewer IPC schema blocks
         assert!(
             coalesced_output.len() < uncoalesced_output.len(),
-            "Coalesced output ({} bytes) should be smaller than uncoalesced ({} bytes)",
+            "Buffered output ({} bytes) should be smaller than unbuffered ({} bytes)",
             coalesced_output.len(),
             uncoalesced_output.len()
         );
 
         // Verify both roundtrip correctly by reading all IPC blocks
-        let coalesced_rows = read_all_ipc_blocks(&coalesced_output);
-        let uncoalesced_rows = read_all_ipc_blocks(&uncoalesced_output);
+        let buffered_rows = read_all_ipc_blocks(&coalesced_output);
+        let unbuffered_rows = read_all_ipc_blocks(&uncoalesced_output);
         assert_eq!(
-            coalesced_rows, 5000,
-            "Coalesced should contain all 5000 rows"
+            buffered_rows, 5000,
+            "Buffered should contain all 5000 rows"
         );
         assert_eq!(
-            uncoalesced_rows, 5000,
-            "Uncoalesced should contain all 5000 rows"
+            unbuffered_rows, 5000,
+            "Unbuffered should contain all 5000 rows"
         );
     }
 

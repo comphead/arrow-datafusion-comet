@@ -63,7 +63,6 @@ impl SinglePartitionShufflePartitioner {
             shuffle_block_writer,
             output_data_file,
             write_buffer_size,
-            batch_size,
         );
 
         Ok(Self {
