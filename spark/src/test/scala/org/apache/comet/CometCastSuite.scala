@@ -1593,7 +1593,9 @@ class CometCastSuite extends CometTestBase with AdaptiveSparkPlanHelper {
   }
 
   // https://github.com/apache/datafusion-comet/issues/3906
-  ignore("cast nested ArrayType to nested ArrayType") {
+  test("cast nested ArrayType to nested ArrayType") {
+    val currentPid: Long = ProcessHandle.current().pid()
+    println(s"Current PID: $currentPid")
     val types = Seq(
       BooleanType,
       StringType,
