@@ -22,11 +22,14 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types: [opened, synchronize, reopened]
+  # Temporarily disabled on git_fork2 to isolate CI to the sql_core-1
+  # matrix on Spark 3.5 + 4.0 only. Re-enable by uncommenting.
+  # push:
+  #   branches:
+  #     - main
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 jobs:
   check-missing-suites:

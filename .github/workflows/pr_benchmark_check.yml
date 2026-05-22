@@ -25,18 +25,20 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "native/core/benches/**"
-      - "native/spark-expr/benches/**"
-      - "spark/src/test/scala/org/apache/spark/sql/benchmark/**"
-  pull_request:
-    paths:
-      - "native/core/benches/**"
-      - "native/spark-expr/benches/**"
-      - "spark/src/test/scala/org/apache/spark/sql/benchmark/**"
+  # Temporarily disabled on git_fork2 to isolate CI to the sql_core-1
+  # matrix on Spark 3.5 + 4.0 only. Re-enable by uncommenting.
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - "native/core/benches/**"
+  #     - "native/spark-expr/benches/**"
+  #     - "spark/src/test/scala/org/apache/spark/sql/benchmark/**"
+  # pull_request:
+  #   paths:
+  #     - "native/core/benches/**"
+  #     - "native/spark-expr/benches/**"
+  #     - "spark/src/test/scala/org/apache/spark/sql/benchmark/**"
   workflow_dispatch:
 
 env:

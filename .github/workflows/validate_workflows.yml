@@ -22,13 +22,16 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/*.yml"
-      - ".github/workflows/*.yaml"
-  push:
-    branches:
-      - main
+  # Temporarily disabled on git_fork2 to isolate CI to the sql_core-1
+  # matrix on Spark 3.5 + 4.0 only. Re-enable by uncommenting.
+  # pull_request:
+  #   paths:
+  #     - ".github/workflows/*.yml"
+  #     - ".github/workflows/*.yaml"
+  # push:
+  #   branches:
+  #     - main
+  workflow_dispatch:
 
 jobs:
   validate:

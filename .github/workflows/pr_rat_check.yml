@@ -26,10 +26,12 @@ permissions:
 
 # No paths-ignore: this workflow must run for ALL changes including docs
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  # Temporarily disabled on git_fork2 to isolate CI to the sql_core-1
+  # matrix on Spark 3.5 + 4.0 only. Re-enable by uncommenting.
+  # push:
+  #   branches:
+  #     - main
+  # pull_request:
   workflow_dispatch:
 
 jobs:

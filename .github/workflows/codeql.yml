@@ -23,12 +23,15 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  schedule:
-    - cron: '16 4 * * 1'
+  # Temporarily disabled on git_fork2 to isolate CI to the sql_core-1
+  # matrix on Spark 3.5 + 4.0 only. Re-enable by uncommenting.
+  # push:
+  #   branches: [ "main" ]
+  # pull_request:
+  #   branches: [ "main" ]
+  # schedule:
+  #   - cron: '16 4 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read
