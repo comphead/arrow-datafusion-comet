@@ -15,29 +15,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Check PR Title
+# Disabled: replaced by build_main.yml / build_and_test.yml (Spark-style fork-delegated CI). Preserved as comments pending migration.
+# name: Check PR Title
 
-concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-  cancel-in-progress: true
+# concurrency:
+#   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+#   cancel-in-progress: true
 
-on:
-  pull_request:
-    types: [opened, edited, reopened]
+# on:
+#   pull_request:
+#     types: [opened, edited, reopened]
 
-jobs:
-  check-pr-title:
-    runs-on: ubuntu-slim
-    steps:
-      - uses: actions/checkout@v6
-      - name: Check PR title
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          if ! echo $PR_TITLE | grep -Eq '^(\w+)(\(.+\))?: .+$'; then
-            echo "PR title does not follow conventional commit style."
-            echo "Please use a title in the format: type: message, or type(scope): message"
-            echo "Example: feat: Add support for sort-merge join"
-            exit 1
-          fi
+# jobs:
+#   check-pr-title:
+#     runs-on: ubuntu-slim
+#     steps:
+#       - uses: actions/checkout@v6
+#       - name: Check PR title
+#         env:
+#           PR_TITLE: ${{ github.event.pull_request.title }}
+#         run: |
+#           if ! echo $PR_TITLE | grep -Eq '^(\w+)(\(.+\))?: .+$'; then
+#             echo "PR title does not follow conventional commit style."
+#             echo "Please use a title in the format: type: message, or type(scope): message"
+#             echo "Example: feat: Add support for sort-merge join"
+#             exit 1
+#           fi
 

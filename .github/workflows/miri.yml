@@ -15,38 +15,39 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Run Miri Safety Checks
+# Disabled: replaced by build_main.yml / build_and_test.yml (Spark-style fork-delegated CI). Preserved as comments pending migration.
+# name: Run Miri Safety Checks
 
-concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-  cancel-in-progress: true
+# concurrency:
+#   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+#   cancel-in-progress: true
 
-on:
+# on:
   # nightly safety check
-  schedule:
-    - cron: '0 4 * * *'
+#   schedule:
+#     - cron: '0 4 * * *'
   # manual trigger
   # https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
-  workflow_dispatch:
+#   workflow_dispatch:
 
-jobs:
-  miri:
-    name: "Miri"
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v6
-      - name: Install Build Dependencies
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-          sudo apt-get install -y clang
-      - name: Install Miri
-        run: |
-          rustup toolchain install nightly --component miri
-          rustup override set nightly
-          cargo miri setup
-      - name: Test with Miri
-        run: |
-          cd native
-          MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test --lib --bins --tests --examples
+# jobs:
+#   miri:
+#     name: "Miri"
+#     runs-on: ubuntu-24.04
+#     steps:
+#       - uses: actions/checkout@v6
+#       - name: Install Build Dependencies
+#         shell: bash
+#         run: |
+#           sudo apt-get update
+#           sudo apt-get install -y protobuf-compiler
+#           sudo apt-get install -y clang
+#       - name: Install Miri
+#         run: |
+#           rustup toolchain install nightly --component miri
+#           rustup override set nightly
+#           cargo miri setup
+#       - name: Test with Miri
+#         run: |
+#           cd native
+#           MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test --lib --bins --tests --examples

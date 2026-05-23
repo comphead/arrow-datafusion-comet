@@ -15,24 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: "Close stale PRs"
-on:
-  schedule:
-    - cron: "30 1 * * *"
+# Disabled: replaced by build_main.yml / build_and_test.yml (Spark-style fork-delegated CI). Preserved as comments pending migration.
+# name: "Close stale PRs"
+# on:
+#   schedule:
+#     - cron: "30 1 * * *"
 
-jobs:
-  close-stale-prs:
-    runs-on: ubuntu-slim
-    permissions:
-      issues: write
-      pull-requests: write
-    steps:
-      - uses: actions/stale@eb5cf3af3ac0a1aa4c9c45633dd1ae542a27a899  # v10.3.0
-        with:
-          stale-pr-message: "Thank you for your contribution. Unfortunately, this pull request is stale because it has been open 60 days with no activity. Please remove the stale label or comment or this will be closed in 7 days."
-          days-before-pr-stale: 60
-          days-before-pr-close: 7
+# jobs:
+#   close-stale-prs:
+#     runs-on: ubuntu-slim
+#     permissions:
+#       issues: write
+#       pull-requests: write
+#     steps:
+#       - uses: actions/stale@eb5cf3af3ac0a1aa4c9c45633dd1ae542a27a899  # v10.3.0
+#         with:
+#           stale-pr-message: "Thank you for your contribution. Unfortunately, this pull request is stale because it has been open 60 days with no activity. Please remove the stale label or comment or this will be closed in 7 days."
+#           days-before-pr-stale: 60
+#           days-before-pr-close: 7
           # do not close stale issues
-          days-before-issue-stale: -1
-          days-before-issue-close: -1
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+#           days-before-issue-stale: -1
+#           days-before-issue-close: -1
+#           repo-token: ${{ secrets.GITHUB_TOKEN }}
