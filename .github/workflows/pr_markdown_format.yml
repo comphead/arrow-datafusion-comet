@@ -15,35 +15,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Check Markdown Formatting
+# Disabled: replaced by build_main.yml / build_and_test.yml (Spark-style fork-delegated CI). Preserved as comments pending migration.
+# name: Check Markdown Formatting
 
-concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-  cancel-in-progress: true
+# concurrency:
+#   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+#   cancel-in-progress: true
 
-on:
-  pull_request:
-    paths:
-      - '**.md'
+# on:
+#   pull_request:
+#     paths:
+#       - '**.md'
 
-jobs:
-  prettier-check:
-    runs-on: ubuntu-slim
-    steps:
-      - uses: actions/checkout@v6
+# jobs:
+#   prettier-check:
+#     runs-on: ubuntu-slim
+#     steps:
+#       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v6
+#         with:
+#           node-version: '24'
 
-      - name: Install prettier
-        run: npm install -g prettier
+#       - name: Install prettier
+#         run: npm install -g prettier
 
-      - name: Check markdown formatting
-        run: |
+#       - name: Check markdown formatting
+#         run: |
           # if you encounter error, run prettier locally and commit changes using instructions at:
           #
           # https://datafusion.apache.org/comet/contributor-guide/development.html#how-to-format-md-document
           #
-          prettier --check "**/*.md"
+#           prettier --check "**/*.md"

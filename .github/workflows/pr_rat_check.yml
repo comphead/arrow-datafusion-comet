@@ -15,33 +15,34 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: RAT License Check
+# Disabled: replaced by build_main.yml / build_and_test.yml (Spark-style fork-delegated CI). Preserved as comments pending migration.
+# name: RAT License Check
 
-concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-  cancel-in-progress: true
+# concurrency:
+#   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+#   cancel-in-progress: true
 
-permissions:
-  contents: read
+# permissions:
+#   contents: read
 
 # No paths-ignore: this workflow must run for ALL changes including docs
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-  workflow_dispatch:
+# on:
+#   push:
+#     branches:
+#       - main
+#   pull_request:
+#   workflow_dispatch:
 
-jobs:
-  rat-check:
-    name: RAT License Check
-    runs-on: ubuntu-slim
-    steps:
-      - uses: actions/checkout@v6
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 11
-      - name: Run RAT check
-        run: ./mvnw -B -N apache-rat:check
+# jobs:
+#   rat-check:
+#     name: RAT License Check
+#     runs-on: ubuntu-slim
+#     steps:
+#       - uses: actions/checkout@v6
+#       - name: Set up Java
+#         uses: actions/setup-java@v5
+#         with:
+#           distribution: temurin
+#           java-version: 11
+#       - name: Run RAT check
+#         run: ./mvnw -B -N apache-rat:check

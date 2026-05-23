@@ -15,31 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Validate Github Workflows
+# Disabled: replaced by build_main.yml / build_and_test.yml (Spark-style fork-delegated CI). Preserved as comments pending migration.
+# name: Validate Github Workflows
 
-concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-  cancel-in-progress: true
+# concurrency:
+#   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+#   cancel-in-progress: true
 
-on:
-  pull_request:
-    paths:
-      - ".github/workflows/*.yml"
-      - ".github/workflows/*.yaml"
-  push:
-    branches:
-      - main
+# on:
+#   pull_request:
+#     paths:
+#       - ".github/workflows/*.yml"
+#       - ".github/workflows/*.yaml"
+#   push:
+#     branches:
+#       - main
 
-jobs:
-  validate:
-    runs-on: ubuntu-slim
-    steps:
-      - uses: actions/checkout@v6
+# jobs:
+#   validate:
+#     runs-on: ubuntu-slim
+#     steps:
+#       - uses: actions/checkout@v6
 
-      - name: Install actionlint
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash
-          echo "$PWD" >> $GITHUB_PATH
+#       - name: Install actionlint
+#         run: |
+#           curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash
+#           echo "$PWD" >> $GITHUB_PATH
 
-      - name: Lint GitHub Actions workflows
-        run: actionlint -color --shellcheck=off
+#       - name: Lint GitHub Actions workflows
+#         run: actionlint -color --shellcheck=off

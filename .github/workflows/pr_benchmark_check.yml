@@ -18,75 +18,76 @@
 # Lightweight CI for benchmark-only changes - verifies compilation and linting
 # without running full test suites
 
-name: PR Benchmark Check
+# Disabled: replaced by build_main.yml / build_and_test.yml (Spark-style fork-delegated CI). Preserved as comments pending migration.
+# name: PR Benchmark Check
 
-concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-  cancel-in-progress: true
+# concurrency:
+#   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+#   cancel-in-progress: true
 
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - "native/core/benches/**"
-      - "native/spark-expr/benches/**"
-      - "spark/src/test/scala/org/apache/spark/sql/benchmark/**"
-  pull_request:
-    paths:
-      - "native/core/benches/**"
-      - "native/spark-expr/benches/**"
-      - "spark/src/test/scala/org/apache/spark/sql/benchmark/**"
-  workflow_dispatch:
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - "native/core/benches/**"
+#       - "native/spark-expr/benches/**"
+#       - "spark/src/test/scala/org/apache/spark/sql/benchmark/**"
+#   pull_request:
+#     paths:
+#       - "native/core/benches/**"
+#       - "native/spark-expr/benches/**"
+#       - "spark/src/test/scala/org/apache/spark/sql/benchmark/**"
+#   workflow_dispatch:
 
-env:
-  RUST_VERSION: stable
-  RUST_BACKTRACE: 1
+# env:
+#   RUST_VERSION: stable
+#   RUST_BACKTRACE: 1
 
-jobs:
-  benchmark-check:
-    name: Benchmark Compile & Lint Check
-    runs-on: ubuntu-24.04
-    container:
-      image: amd64/rust
-    steps:
-      - uses: actions/checkout@v6
+# jobs:
+#   benchmark-check:
+#     name: Benchmark Compile & Lint Check
+#     runs-on: ubuntu-24.04
+#     container:
+#       image: amd64/rust
+#     steps:
+#       - uses: actions/checkout@v6
 
-      - name: Setup Rust & Java toolchain
-        uses: ./.github/actions/setup-builder
-        with:
-          rust-version: ${{ env.RUST_VERSION }}
-          jdk-version: 17
+#       - name: Setup Rust & Java toolchain
+#         uses: ./.github/actions/setup-builder
+#         with:
+#           rust-version: ${{ env.RUST_VERSION }}
+#           jdk-version: 17
 
-      - name: Check Cargo fmt
-        run: |
-          cd native
-          cargo fmt --all -- --check --color=never
+#       - name: Check Cargo fmt
+#         run: |
+#           cd native
+#           cargo fmt --all -- --check --color=never
 
-      - name: Check Cargo clippy
-        run: |
-          cd native
-          cargo clippy --color=never --all-targets --workspace -- -D warnings
+#       - name: Check Cargo clippy
+#         run: |
+#           cd native
+#           cargo clippy --color=never --all-targets --workspace -- -D warnings
 
-      - name: Check benchmark compilation
-        run: |
-          cd native
-          cargo check --benches
+#       - name: Check benchmark compilation
+#         run: |
+#           cd native
+#           cargo check --benches
 
-      - name: Cache Maven dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            /root/.m2/repository
-          key: ${{ runner.os }}-benchmark-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-benchmark-maven-
+#       - name: Cache Maven dependencies
+#         uses: actions/cache@v5
+#         with:
+#           path: |
+#             ~/.m2/repository
+#             /root/.m2/repository
+#           key: ${{ runner.os }}-benchmark-maven-${{ hashFiles('**/pom.xml') }}
+#           restore-keys: |
+#             ${{ runner.os }}-benchmark-maven-
 
-      - name: Check Scala compilation and linting
+#       - name: Check Scala compilation and linting
         # Pin to spark-4.0 (Scala 2.13.16) because the default profile is now
         # spark-4.1 / Scala 2.13.17, and semanticdb-scalac_2.13.17 is not yet
         # published, which breaks `-Psemanticdb`. See pr_build_linux.yml for
         # the same exclusion in the main lint matrix.
-        run: |
-          ./mvnw -B compile test-compile scalafix:scalafix -Dscalafix.mode=CHECK -Psemanticdb -Pspark-4.0 -DskipTests
+#         run: |
+#           ./mvnw -B compile test-compile scalafix:scalafix -Dscalafix.mode=CHECK -Psemanticdb -Pspark-4.0 -DskipTests

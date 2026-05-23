@@ -15,25 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Label new issues with requires-triage
+# Disabled: replaced by build_main.yml / build_and_test.yml (Spark-style fork-delegated CI). Preserved as comments pending migration.
+# name: Label new issues with requires-triage
 
-on:
-  issues:
-    types: [opened]
+# on:
+#   issues:
+#     types: [opened]
 
-permissions:
-  issues: write
+# permissions:
+#   issues: write
 
-jobs:
-  add-triage-label:
-    runs-on: ubuntu-slim
-    steps:
-      - uses: actions/github-script@v9
-        with:
-          script: |
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              labels: ['requires-triage']
-            })
+# jobs:
+#   add-triage-label:
+#     runs-on: ubuntu-slim
+#     steps:
+#       - uses: actions/github-script@v9
+#         with:
+#           script: |
+#             await github.rest.issues.addLabels({
+#               owner: context.repo.owner,
+#               repo: context.repo.repo,
+#               issue_number: context.issue.number,
+#               labels: ['requires-triage']
+#             })

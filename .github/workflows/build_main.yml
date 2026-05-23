@@ -15,24 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Disabled: replaced by build_main.yml / build_and_test.yml (Spark-style fork-delegated CI). Preserved as comments pending migration.
-# name: Check that all test suites are added to PR workflows
+# Modelled on Apache Spark's build_main.yml. Triggers on push to any branch,
+# which means contributor pushes to a fork run CI on the fork's Actions
+# minutes/runners rather than on apache/datafusion-comet. The bridge to the
+# upstream PR check is notify_test_workflow.yml.
 
-# concurrency:
-#   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-#   cancel-in-progress: true
+name: "Build"
 
-# on:
-#   push:
-#     branches:
-#       - main
-#   pull_request:
-#     types: [opened, synchronize, reopened]
+on:
+  push:
+    branches:
+    - '**'
 
-# jobs:
-#   check-missing-suites:
-#     runs-on: ubuntu-slim
-#     steps:
-#       - uses: actions/checkout@v6
-#       - name: Check Missing Suites
-#         run: python3 dev/ci/check-suites.py
+jobs:
+  call-build-and-test:
+    permissions:
+      packages: write
+    name: Run
+    uses: ./.github/workflows/build_and_test.yml
