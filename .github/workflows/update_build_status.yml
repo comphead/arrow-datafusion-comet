@@ -1,3 +1,4 @@
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -24,7 +25,7 @@ name: Update build status workflow
 
 on:
   schedule:
-  - cron: "*/15 * * * *"
+    - cron: "*/15 * * * *"
 
 jobs:
   update:
@@ -82,7 +83,7 @@ jobs:
                       // Keep syncing the status of the checks
                       if (run.data.status == 'completed') {
                         console.log('    Run ' + cr.id + ': set status (' + run.data.status + ') and conclusion (' + run.data.conclusion + ')')
-                        await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
+                        const response = await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
                           owner: context.repo.owner,
                           repo: context.repo.repo,
                           check_run_id: cr.id,
@@ -93,7 +94,7 @@ jobs:
                         })
                       } else {
                         console.log('    Run ' + cr.id + ': set status (' + run.data.status + ')')
-                        await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
+                        const response = await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
                           owner: context.repo.owner,
                           repo: context.repo.repo,
                           check_run_id: cr.id,
