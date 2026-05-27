@@ -131,3 +131,9 @@ jobs:
         env:
           LC_ALL: "C.UTF-8"
           SBT_MEM: "3072"
+      - name: Upload test results to report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-sql_core-1-spark${{ inputs.spark-short }}-jdk${{ inputs.java }}
+          path: "**/target/test-reports/*.xml"
