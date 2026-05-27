@@ -65,6 +65,7 @@ jobs:
       - name: Sync the current branch with the latest in Apache DataFusion Comet
         if: github.repository != 'apache/datafusion-comet'
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           echo "APACHE_DF_COMET_REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
           git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
           git -c user.name='Apache DataFusion Comet Test Account' -c user.email='comettestacc@gmail.com' merge --no-commit --progress --squash FETCH_HEAD
