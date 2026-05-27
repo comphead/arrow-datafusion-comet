@@ -1,3 +1,4 @@
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -112,23 +113,18 @@ jobs:
                 throw new Error('There was a new unsynced commit pushed. Please retrigger the workflow.');
               }
 
-              // Here we get check run ID to provide Check run view instead of Actions view.
+              // Here we get check run ID to provide Check run view instead of Actions view
               const check_runs = await github.request(check_run_endpoint, check_run_params)
-              const check_run_head = check_runs.data.check_runs.filter(r => r.name === "Run / Build Native Library")[0]
+              const check_run_head = check_runs.data.check_runs.filter(r => r.name === "Run / Check changes")[0]
 
-              if (check_run_head && check_run_head.head_sha != context.payload.pull_request.head.sha) {
+              if (check_run_head.head_sha != context.payload.pull_request.head.sha) {
                 throw new Error('There was a new unsynced commit pushed. Please retrigger the workflow.');
               }
 
-              const check_run_url = check_run_head
-                ? 'https://github.com/'
-                  + context.payload.pull_request.head.repo.full_name
-                  + '/runs/'
-                  + check_run_head.id
-                : 'https://github.com/'
-                  + context.payload.pull_request.head.repo.full_name
-                  + '/actions/runs/'
-                  + run_id
+              const check_run_url = 'https://github.com/'
+                + context.payload.pull_request.head.repo.full_name
+                + '/runs/'
+                + check_run_head.id
 
               const actions_url = 'https://github.com/'
                 + context.payload.pull_request.head.repo.full_name

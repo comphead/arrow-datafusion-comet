@@ -47,7 +47,7 @@ env:
 
 jobs:
   build-native:
-    name: Build Native Library
+    name: Check changes
     runs-on: ubuntu-24.04
     container:
       image: amd64/rust
