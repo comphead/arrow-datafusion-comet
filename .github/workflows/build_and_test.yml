@@ -67,57 +67,9 @@ jobs:
           git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
           git -c user.name='Apache DataFusion Comet Test Account' -c user.email='comettestacc@gmail.com' merge --no-commit --progress --squash FETCH_HEAD
           git -c user.name='Apache DataFusion Comet Test Account' -c user.email='comettestacc@gmail.com' commit -m "Merged commit" --allow-empty
-  build-native:
-    name: Build native
-    runs-on: ubuntu-24.04
-    container:
-      image: amd64/rust
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Rust toolchain
-        uses: ./.github/actions/setup-builder
-        with:
-          rust-version: ${{ env.RUST_VERSION }}
-          jdk-version: 17
-
-      - name: Restore Cargo cache
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            native/target
-          key: ${{ runner.os }}-cargo-ci-${{ hashFiles('native/**/Cargo.lock', 'native/**/Cargo.toml') }}-${{ hashFiles('native/**/*.rs') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-ci-${{ hashFiles('native/**/Cargo.lock', 'native/**/Cargo.toml') }}-
-
-      - name: Build native library (CI profile)
-        run: |
-          cd native
-          cargo build --profile ci
-        env:
-          RUSTFLAGS: "-Ctarget-cpu=x86-64-v3 -Clink-arg=-fuse-ld=bfd"
-
-      - name: Upload native library
-        uses: actions/upload-artifact@v7
-        with:
-          name: native-lib-linux
-          path: native/target/ci/libcomet.so
-          retention-days: 1
-
-      - name: Save Cargo cache
-        uses: actions/cache/save@v5
-        if: github.ref == 'refs/heads/main'
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            native/target
-          key: ${{ runner.os }}-cargo-ci-${{ hashFiles('native/**/Cargo.lock', 'native/**/Cargo.toml') }}-${{ hashFiles('native/**/*.rs') }}
-
+  
   sql_core-1:
-    needs: build-native
+    needs: precondition
     name: "Build modules: sql_core-1"
     runs-on: ubuntu-24.04
     container:
