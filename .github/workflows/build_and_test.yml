@@ -115,6 +115,11 @@ jobs:
       image: amd64/rust
     steps:
       - uses: actions/checkout@v6
+      - name: Setup Rust & Java toolchain
+        uses: ./.github/actions/setup-builder
+        with:
+          rust-version: ${{ env.RUST_VERSION }}
+          jdk-version: 17
       - name: Download native library
         uses: actions/download-artifact@v8
         with:
