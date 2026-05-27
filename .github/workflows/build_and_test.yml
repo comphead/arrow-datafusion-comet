@@ -46,8 +46,29 @@ env:
   RUSTFLAGS: "-Clink-arg=-fuse-ld=bfd"
 
 jobs:
-  build-native:
+  precondition:
     name: Check changes
+    runs-on: ubuntu-22.04
+    env:
+      GITHUB_PREV_SHA: ${{ github.event.before }}
+    outputs:
+      required: ${{ steps.set-outputs.outputs.required }}
+    steps:
+      - name: Checkout Apache DataFusion Comet repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          repository: apache/datafusion-comet
+          ref: ${{ inputs.branch }}
+      - name: Sync the current branch with the latest in Apache DataFusion Comet
+        if: github.repository != 'apache/datafusion-comet'
+        run: |
+          echo "APACHE_DF_COMET_REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
+          git -c user.name='Apache DataFusion Comet Test Account' -c user.email='comettestacc@gmail.com' merge --no-commit --progress --squash FETCH_HEAD
+          git -c user.name='Apache DataFusion Comet Test Account' -c user.email='comettestacc@gmail.com' commit -m "Merged commit" --allow-empty
+  build-native:
+    name: Build native
     runs-on: ubuntu-24.04
     container:
       image: amd64/rust
