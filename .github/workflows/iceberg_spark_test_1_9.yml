@@ -16,42 +16,44 @@
 # under the License.
 
 # Runs on main only. Iceberg 1.9 paired with Spark 3.5.
-name: Iceberg Spark SQL Tests (Iceberg 1.9)
 
-concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-  cancel-in-progress: true
+# Disabled: replaced by build_main.yml / build_and_test.yml (Spark-style fork-delegated CI). Preserved as comments pending migration.
+# name: Iceberg Spark SQL Tests (Iceberg 1.9)
 
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - "native/**/src/**"
-      - "native/**/Cargo.toml"
-      - "native/Cargo.lock"
-      - "!native/hdfs/**"
-      - "!native/fs-hdfs/**"
-      - "common/src/main/**"
-      - "common/pom.xml"
-      - "spark/src/main/**"
-      - "!spark/src/main/scala/org/apache/comet/GenerateDocs.scala"
-      - "spark/pom.xml"
-      - "dev/diffs/iceberg/**"
-      - "pom.xml"
-      - "rust-toolchain.toml"
-      - ".github/workflows/iceberg_spark_test_1_9.yml"
-      - ".github/workflows/iceberg_spark_test_reusable.yml"
-      - ".github/actions/setup-builder/**"
-      - ".github/actions/setup-iceberg-builder/**"
-  workflow_dispatch:
+# concurrency:
+#   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+#   cancel-in-progress: true
 
-jobs:
-  iceberg-spark:
-    uses: ./.github/workflows/iceberg_spark_test_reusable.yml
-    with:
-      iceberg-short: '1.9'
-      iceberg-full: '1.9.1'
-      spark-short: '3.5'
-      spark-full: '3.5.8'
-      java: 17
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - "native/**/src/**"
+#       - "native/**/Cargo.toml"
+#       - "native/Cargo.lock"
+#       - "!native/hdfs/**"
+#       - "!native/fs-hdfs/**"
+#       - "common/src/main/**"
+#       - "common/pom.xml"
+#       - "spark/src/main/**"
+#       - "!spark/src/main/scala/org/apache/comet/GenerateDocs.scala"
+#       - "spark/pom.xml"
+#       - "dev/diffs/iceberg/**"
+#       - "pom.xml"
+#       - "rust-toolchain.toml"
+#       - ".github/workflows/iceberg_spark_test_1_9.yml"
+#       - ".github/workflows/iceberg_spark_test_reusable.yml"
+#       - ".github/actions/setup-builder/**"
+#       - ".github/actions/setup-iceberg-builder/**"
+#   workflow_dispatch:
+
+# jobs:
+#   iceberg-spark:
+#     uses: ./.github/workflows/iceberg_spark_test_reusable.yml
+#     with:
+#       iceberg-short: '1.9'
+#       iceberg-full: '1.9.1'
+#       spark-short: '3.5'
+#       spark-full: '3.5.8'
+#       java: 17
