@@ -114,8 +114,9 @@ jobs:
     container:
       image: amd64/rust
     steps:
-      - name: Checkout and setup builder
-        uses: ./.github/actions/checkout-and-setup-builder
+      - uses: actions/checkout@v6
+      - name: Setup Rust & Java toolchain
+        uses: ./.github/actions/setup-builder
         with:
           rust-version: ${{ env.RUST_VERSION }}
           jdk-version: 17
@@ -156,8 +157,9 @@ jobs:
     container:
       image: amd64/rust
     steps:
-      - name: Checkout and setup builder
-        uses: ./.github/actions/checkout-and-setup-builder
+      - uses: actions/checkout@v6
+      - name: Setup Rust & Java toolchain
+        uses: ./.github/actions/setup-builder
         with:
           rust-version: ${{ env.RUST_VERSION }}
           jdk-version: 17
