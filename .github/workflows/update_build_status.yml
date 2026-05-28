@@ -15,11 +15,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-# Polls each open PR's fork-side "Build" workflow run and PATCHes the
-# corresponding apache/datafusion-comet check run so the PR check status
-# stays in sync with the fork-hosted CI. Modelled on Apache Spark's
-# update_build_status.yml.
+#
 
 name: Update build status workflow
 
@@ -51,7 +47,7 @@ jobs:
             const maybeReady = ['behind', 'clean', 'draft', 'has_hooks', 'unknown', 'unstable'];
 
             // Iterate open PRs
-            for await (const prs of github.paginate.iterator(endpoint, params)) {
+            for await (const prs of github.paginate.iterator(endpoint,params)) {
               // Each page
               for await (const pr of prs.data) {
                 console.log('SHA: ' + pr.head.sha)

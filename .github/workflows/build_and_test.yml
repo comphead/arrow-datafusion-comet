@@ -114,9 +114,8 @@ jobs:
     container:
       image: amd64/rust
     steps:
-      - uses: actions/checkout@v6
-      - name: Setup Rust & Java toolchain
-        uses: ./.github/actions/setup-builder
+      - name: Checkout and setup builder
+        uses: ./.github/actions/checkout-and-setup-builder
         with:
           rust-version: ${{ env.RUST_VERSION }}
           jdk-version: 17
@@ -148,4 +147,46 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-results-sql_core-1-spark${{ inputs.spark-short }}-jdk${{ inputs.java }}
+          path: "**/target/test-reports/*.xml"
+
+  sql_core-2:
+    needs: precondition
+    name: "Build modules: sql_core-2"
+    runs-on: ubuntu-24.04
+    container:
+      image: amd64/rust
+    steps:
+      - name: Checkout and setup builder
+        uses: ./.github/actions/checkout-and-setup-builder
+        with:
+          rust-version: ${{ env.RUST_VERSION }}
+          jdk-version: 17
+      - name: Download native library
+        uses: actions/download-artifact@v8
+        with:
+          name: native-lib-linux
+          path: native/target/release/
+      - name: Setup Spark
+        uses: ./.github/actions/setup-spark-builder
+        with:
+          spark-version: ${{ inputs.spark-full }}
+          spark-short-version: ${{ inputs.spark-short }}
+          skip-native-build: true
+      - name: Run Spark sql_core-2 tests
+        run: |
+          cd apache-spark
+          rm -rf /root/.m2/repository/org/apache/parquet
+          export SERIAL_SBT_TESTS=1
+          NOLINT_ON_COMPILE=true ENABLE_COMET=true ENABLE_COMET_ONHEAP=true \
+            build/sbt -Dsbt.log.noformat=true -mem $SBT_MEM \
+              'set Global / concurrentRestrictions := Seq(Tags.limit(Tags.ForkedTestGroup, 1))' \
+              "sql/testOnly * -- -n org.apache.spark.tags.ExtendedSQLTest"
+        env:
+          LC_ALL: "C.UTF-8"
+          SBT_MEM: "3072"
+      - name: Upload test results to report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-sql_core-2-spark${{ inputs.spark-short }}-jdk${{ inputs.java }}
           path: "**/target/test-reports/*.xml"
