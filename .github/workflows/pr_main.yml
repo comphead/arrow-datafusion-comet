@@ -119,3 +119,61 @@ jobs:
       spark-short: '3.5'
       spark-full: '3.5.8'
       java: 17
+
+  # Single required check for branch protection. GitHub treats skipped jobs
+  # as success for required status checks, so requiring the individual jobs
+  # above would allow unlabeled PRs to merge. This job runs unconditionally
+  # and only passes when every orchestrated job actually ran and succeeded.
+  # Configure branch protection to require ONLY `PR Main / all-checks`.
+  all-checks:
+    name: All Required Checks
+    if: always()
+    needs:
+      - gate
+      - build-linux
+      - build-macos
+      - benchmark-check
+      - markdown-format
+      - missing-suites
+      - rat-check
+      - title-check
+      - spark-sql-3-5
+      - spark-sql-4-0
+      - iceberg-1-10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate results
+        env:
+          GATE_RUN: ${{ needs.gate.outputs.run }}
+          GATE_RESULT: ${{ needs.gate.result }}
+          RESULTS: |
+            build-linux=${{ needs.build-linux.result }}
+            build-macos=${{ needs.build-macos.result }}
+            benchmark-check=${{ needs.benchmark-check.result }}
+            markdown-format=${{ needs.markdown-format.result }}
+            missing-suites=${{ needs.missing-suites.result }}
+            rat-check=${{ needs.rat-check.result }}
+            title-check=${{ needs.title-check.result }}
+            spark-sql-3-5=${{ needs.spark-sql-3-5.result }}
+            spark-sql-4-0=${{ needs.spark-sql-4-0.result }}
+            iceberg-1-10=${{ needs.iceberg-1-10.result }}
+        run: |
+          printf '%s\n' "$RESULTS"
+          echo
+          if [[ "$GATE_RESULT" != "success" ]]; then
+            echo "::error::Gate job did not succeed ($GATE_RESULT)."
+            exit 1
+          fi
+          if [[ "$GATE_RUN" != "true" ]]; then
+            echo "::error::PR is missing the 'CI Ready' label — required checks have not run. Add the label to enable merge."
+            exit 1
+          fi
+          failed=0
+          while IFS='=' read -r name result; do
+            [[ -z "$name" ]] && continue
+            if [[ "$result" != "success" ]]; then
+              echo "::error::Job '$name' did not succeed: $result"
+              failed=1
+            fi
+          done <<< "$RESULTS"
+          exit $failed
