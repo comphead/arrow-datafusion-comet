@@ -25,6 +25,8 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  # PR runs are orchestrated by pr_main.yml (label-gated). Direct triggers
+  # below cover push to main and manual dispatch.
   push:
     branches:
       - main
@@ -32,11 +34,7 @@ on:
       - "native/core/benches/**"
       - "native/spark-expr/benches/**"
       - "spark/src/test/scala/org/apache/spark/sql/benchmark/**"
-  pull_request:
-    paths:
-      - "native/core/benches/**"
-      - "native/spark-expr/benches/**"
-      - "spark/src/test/scala/org/apache/spark/sql/benchmark/**"
+  workflow_call:
   workflow_dispatch:
 
 env:

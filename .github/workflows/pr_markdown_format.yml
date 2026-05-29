@@ -22,9 +22,9 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  pull_request:
-    paths:
-      - '**.md'
+  # PR runs are orchestrated by pr_main.yml (label-gated).
+  workflow_call:
+  workflow_dispatch:
 
 jobs:
   prettier-check:

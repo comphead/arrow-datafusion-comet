@@ -23,33 +23,11 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  # PR runs are orchestrated by pr_main.yml, which calls
+  # spark_sql_test_reusable.yml directly with the same parameters.
   push:
     branches:
       - main
-    paths:
-      - "native/**/src/**"
-      - "native/**/Cargo.toml"
-      - "native/Cargo.lock"
-      - "!native/hdfs/**"
-      - "!native/fs-hdfs/**"
-      - "common/src/main/**"
-      - "common/pom.xml"
-      - "spark/src/main/**"
-      - "!spark/src/main/spark-3.4/**"
-      - "!spark/src/main/spark-4.0/**"
-      - "!spark/src/main/spark-4.1/**"
-      - "!spark/src/main/spark-4.2/**"
-      - "!spark/src/main/spark-4.x/**"
-      - "!spark/src/main/scala/org/apache/comet/GenerateDocs.scala"
-      - "spark/pom.xml"
-      - "dev/diffs/3.5.8.diff"
-      - "pom.xml"
-      - "rust-toolchain.toml"
-      - ".github/workflows/spark_sql_test_3_5.yml"
-      - ".github/workflows/spark_sql_test_reusable.yml"
-      - ".github/actions/setup-builder/**"
-      - ".github/actions/setup-spark-builder/**"
-  pull_request:
     paths:
       - "native/**/src/**"
       - "native/**/Cargo.toml"

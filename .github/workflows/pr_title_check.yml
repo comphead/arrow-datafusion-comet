@@ -22,8 +22,10 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  pull_request:
-    types: [opened, edited, reopened]
+  # PR runs are orchestrated by pr_main.yml (label-gated). pr_main passes
+  # through the `edited` PR event so title changes trigger re-validation.
+  workflow_call:
+  workflow_dispatch:
 
 jobs:
   check-pr-title:

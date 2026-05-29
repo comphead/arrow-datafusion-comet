@@ -24,28 +24,11 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  # PR runs are orchestrated by pr_main.yml, which calls
+  # iceberg_spark_test_reusable.yml directly with the same parameters.
   push:
     branches:
       - main
-    paths:
-      - "native/**/src/**"
-      - "native/**/Cargo.toml"
-      - "native/Cargo.lock"
-      - "!native/hdfs/**"
-      - "!native/fs-hdfs/**"
-      - "common/src/main/**"
-      - "common/pom.xml"
-      - "spark/src/main/**"
-      - "!spark/src/main/scala/org/apache/comet/GenerateDocs.scala"
-      - "spark/pom.xml"
-      - "dev/diffs/iceberg/**"
-      - "pom.xml"
-      - "rust-toolchain.toml"
-      - ".github/workflows/iceberg_spark_test_1_10.yml"
-      - ".github/workflows/iceberg_spark_test_reusable.yml"
-      - ".github/actions/setup-builder/**"
-      - ".github/actions/setup-iceberg-builder/**"
-  pull_request:
     paths:
       - "native/**/src/**"
       - "native/**/Cargo.toml"

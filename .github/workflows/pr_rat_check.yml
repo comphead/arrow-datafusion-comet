@@ -24,12 +24,13 @@ concurrency:
 permissions:
   contents: read
 
-# No paths-ignore: this workflow must run for ALL changes including docs
+# PR runs are orchestrated by pr_main.yml (label-gated). Direct triggers
+# below cover push to main and manual dispatch.
 on:
   push:
     branches:
       - main
-  pull_request:
+  workflow_call:
   workflow_dispatch:
 
 jobs:

@@ -1,0 +1,121 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Single PR entrypoint. The `gate` job checks for the `CI Ready` label and
+# either fans out to all orchestrated workflows or short-circuits. Push to
+# main and on-demand label-gated workflows (Spark 3.4 / 4.1) bypass this
+# file and trigger their workflows directly.
+name: PR Main
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    # `labeled` covers the moment a committer adds `CI Ready`.
+    # `synchronize` re-runs on every push to an already-labeled PR.
+    # `edited` re-runs the title check when a contributor edits the PR title.
+    types: [opened, synchronize, reopened, labeled, edited]
+  workflow_dispatch:
+
+jobs:
+  gate:
+    name: Gate
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'CI Ready') }}
+        run: |
+          if [[ "$EVENT" == "workflow_dispatch" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Manual dispatch — bypassing label gate."
+          elif [[ "$HAS_LABEL" == "true" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::PR has 'CI Ready' label — running all checks."
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Add the 'CI Ready' label to run CI checks."
+          fi
+
+  build-linux:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/pr_build_linux.yml
+
+  build-macos:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/pr_build_macos.yml
+
+  benchmark-check:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/pr_benchmark_check.yml
+
+  markdown-format:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/pr_markdown_format.yml
+
+  missing-suites:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/pr_missing_suites.yml
+
+  rat-check:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/pr_rat_check.yml
+
+  title-check:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/pr_title_check.yml
+
+  spark-sql-3-5:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/spark_sql_test_reusable.yml
+    with:
+      spark-short: '3.5'
+      spark-full: '3.5.8'
+      java: 11
+
+  spark-sql-4-0:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/spark_sql_test_reusable.yml
+    with:
+      spark-short: '4.0'
+      spark-full: '4.0.2'
+      java: 21
+
+  iceberg-1-10:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/iceberg_spark_test_reusable.yml
+    with:
+      iceberg-short: '1.10'
+      iceberg-full: '1.10.0'
+      spark-short: '3.5'
+      spark-full: '3.5.8'
+      java: 17

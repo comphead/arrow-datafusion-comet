@@ -22,9 +22,9 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  # Allow-list of paths that affect this workflow. A change must match a positive
-  # pattern (and not a trailing "!" exclusion) for the build to run. Editing
-  # pr_build_macos.yml does not trigger this workflow, and vice versa.
+  # PR runs are orchestrated by pr_main.yml (label-gated). This file is
+  # invoked from there via workflow_call. Direct triggers below cover push
+  # to main and manual dispatch.
   push:
     branches:
       - main
@@ -49,30 +49,7 @@ on:
       - "!native/spark-expr/benches/**"
       - "!spark/src/test/scala/org/apache/spark/sql/benchmark/**"
       - "!spark/src/main/scala/org/apache/comet/GenerateDocs.scala"
-  pull_request:
-    paths:
-      - "native/**"
-      - "common/**"
-      - "spark/**"
-      - "spark-integration/**"
-      - "pom.xml"
-      - "**/pom.xml"
-      - ".mvn/**"
-      - "mvnw"
-      - "Makefile"
-      - "rust-toolchain.toml"
-      - "dev/ci/**"
-      - ".github/workflows/pr_build_linux.yml"
-      - ".github/actions/setup-builder/**"
-      - ".github/actions/java-test/**"
-      - ".github/actions/rust-test/**"
-      - "!**.md"
-      - "!native/core/benches/**"
-      - "!native/spark-expr/benches/**"
-      - "!spark/src/test/scala/org/apache/spark/sql/benchmark/**"
-      - "!spark/src/main/scala/org/apache/comet/GenerateDocs.scala"
-  # manual trigger
-  # https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
+  workflow_call:
   workflow_dispatch:
 
 env:
