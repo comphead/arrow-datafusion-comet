@@ -24,6 +24,7 @@ pub mod operator_registry;
 use crate::execution::operators::init_csv_datasource_exec;
 use crate::execution::operators::IcebergScanExec;
 use crate::execution::{
+    expressions::list_positions::ListPositionsExpr,
     expressions::subquery::Subquery,
     operators::{ExecutionError, ExpandExec, ParquetWriterExec, ScanExec, ShuffleScanExec},
     planner::expression_registry::ExpressionRegistry,
@@ -183,6 +184,9 @@ pub struct PhysicalPlanner {
     partition: i32,
     session_ctx: Arc<SessionContext>,
     query_context_registry: Arc<datafusion_comet_spark_expr::QueryContextMap>,
+    /// Captured at `createPlan` time on `ExecutionContext`; see that struct for the
+    /// propagation rationale. `None` when no driving Spark task is available.
+    task_context: Option<Arc<Global<JObject<'static>>>>,
 }
 
 impl Default for PhysicalPlanner {
@@ -198,16 +202,24 @@ impl PhysicalPlanner {
             session_ctx,
             partition,
             query_context_registry: datafusion_comet_spark_expr::create_query_context_map(),
+            task_context: None,
         }
     }
 
-    pub fn with_exec_id(self, exec_context_id: i64) -> Self {
-        Self {
-            exec_context_id,
-            partition: self.partition,
-            session_ctx: Arc::clone(&self.session_ctx),
-            query_context_registry: Arc::clone(&self.query_context_registry),
-        }
+    pub fn with_exec_id(mut self, exec_context_id: i64) -> Self {
+        self.exec_context_id = exec_context_id;
+        self
+    }
+
+    /// Attach a propagated Spark `TaskContext` global reference. Called by the JNI `executePlan`
+    /// entry with whatever was captured at `createPlan` time. The planner clones this `Option`
+    /// into every `JvmScalarUdfExpr` it builds.
+    pub fn with_task_context(
+        mut self,
+        task_context: Option<Arc<Global<JObject<'static>>>>,
+    ) -> Self {
+        self.task_context = task_context;
+        self
     }
 
     /// Return session context of this planner.
@@ -253,7 +265,6 @@ impl PhysicalPlanner {
                     let literal =
                         self.create_expr(partition_value, Arc::<Schema>::clone(&empty_schema))?;
                     literal
-                        .as_any()
                         .downcast_ref::<DataFusionLiteral>()
                         .ok_or_else(|| {
                             GeneralError("Expected literal of partition value".to_string())
@@ -344,6 +355,9 @@ impl PhysicalPlanner {
                         DataType::Map(f, s) => DataType::Map(f, s).try_into()?,
                         DataType::List(f) => DataType::List(f).try_into()?,
                         DataType::Null => ScalarValue::Null,
+                        DataType::Time64(TimeUnit::Nanosecond) => {
+                            ScalarValue::Time64Nanosecond(None)
+                        }
                         dt => {
                             return Err(GeneralError(format!("{dt:?} is not supported in Comet")))
                         }
@@ -444,11 +458,7 @@ impl PhysicalPlanner {
 
                 // WideDecimalBinaryExpr already handles overflow — skip redundant check
                 // but only if its output type matches CheckOverflow's declared type
-                if child
-                    .as_any()
-                    .downcast_ref::<WideDecimalBinaryExpr>()
-                    .is_some()
-                {
+                if child.downcast_ref::<WideDecimalBinaryExpr>().is_some() {
                     let child_type = child.data_type(&input_schema)?;
                     if child_type == data_type {
                         return Ok(child);
@@ -457,7 +467,7 @@ impl PhysicalPlanner {
 
                 // Fuse Cast(Decimal128→Decimal128) + CheckOverflow into single rescale+check
                 // Only fuse when the Cast target type matches the CheckOverflow output type
-                if let Some(cast) = child.as_any().downcast_ref::<Cast>() {
+                if let Some(cast) = child.downcast_ref::<Cast>() {
                     if let (
                         DataType::Decimal128(p_out, s_out),
                         Ok(DataType::Decimal128(_p_in, s_in)),
@@ -613,7 +623,11 @@ impl PhysicalPlanner {
             }
             ExprStruct::ToJson(expr) => {
                 let child = self.create_expr(expr.child.as_ref().unwrap(), input_schema)?;
-                Ok(Arc::new(ToJson::new(child, &expr.timezone)))
+                Ok(Arc::new(ToJson::new(
+                    child,
+                    &expr.timezone,
+                    expr.ignore_null_fields,
+                )))
             }
             ExprStruct::ToPrettyString(expr) => {
                 let mut spark_cast_options =
@@ -730,11 +744,19 @@ impl PhysicalPlanner {
                     to_arrow_datatype(udf.return_type.as_ref().ok_or_else(|| {
                         GeneralError("JvmScalarUdf missing return_type".to_string())
                     })?);
+                // Invariant: task_context is propagated for every JvmScalarUdfExpr built during
+                // normal execution. The TEST_EXEC_CONTEXT_ID path is the only context in which
+                // task_context may legitimately be None (unit tests, direct native driver runs).
+                debug_assert!(
+                    self.task_context.is_some() || self.exec_context_id == TEST_EXEC_CONTEXT_ID,
+                    "task_context must be set for non-test execution"
+                );
                 Ok(Arc::new(JvmScalarUdfExpr::new(
                     udf.class_name.clone(),
                     args,
                     return_type,
                     udf.return_nullable,
+                    self.task_context.clone(),
                 )))
             }
             expr => Err(GeneralError(format!("Not implemented: {expr:?}"))),
@@ -1296,12 +1318,10 @@ impl PhysicalPlanner {
                         .iter()
                         .map(|expr| {
                             let literal = self.create_expr(expr, Arc::clone(&required_schema))?;
-                            let df_literal = literal
-                                .as_any()
-                                .downcast_ref::<DataFusionLiteral>()
-                                .ok_or_else(|| {
-                                GeneralError("Expected literal of default value.".to_string())
-                            })?;
+                            let df_literal =
+                                literal.downcast_ref::<DataFusionLiteral>().ok_or_else(|| {
+                                    GeneralError("Expected literal of default value.".to_string())
+                                })?;
                             Ok(df_literal.value().clone())
                         })
                         .collect();
@@ -1360,6 +1380,7 @@ impl PhysicalPlanner {
                     common.session_timezone.as_str(),
                     common.case_sensitive,
                     common.return_null_struct_if_all_fields_missing,
+                    common.allow_type_promotion,
                     self.session_ctx(),
                     common.encryption_enabled,
                     common.use_field_id,
@@ -1459,6 +1480,7 @@ impl PhysicalPlanner {
                     .map(|(k, v)| (k.clone(), v.clone()))
                     .collect();
                 let metadata_location = common.metadata_location.clone();
+                let catalog_name = common.catalog_name.clone();
                 let tasks = parse_file_scan_tasks_from_common(common, &scan.file_scan_tasks)?;
                 let data_file_concurrency_limit = common.data_file_concurrency_limit as usize;
 
@@ -1466,6 +1488,7 @@ impl PhysicalPlanner {
                     metadata_location,
                     required_schema,
                     catalog_properties,
+                    catalog_name,
                     tasks,
                     data_file_concurrency_limit,
                 )?;
@@ -1643,12 +1666,8 @@ impl PhysicalPlanner {
                     .map(|expr| self.create_expr(expr, child.schema()))
                     .collect::<Result<Vec<_>, _>>()?;
 
-                // For UnnestExec, we need to add a projection to put the columns in the right order:
-                // 1. First add all projection columns
-                // 2. Then add the array column to be exploded
-                // Then UnnestExec will unnest the last column
-
-                // Use return_field() to get the proper column names from the expressions
+                // For posexplode, a parallel List<Int32> positions column is added before the
+                // array column so UnnestExec can unnest both in parallel.
                 let child_schema = child.schema();
                 let mut project_exprs: Vec<(Arc<dyn PhysicalExpr>, String)> = projections
                     .iter()
@@ -1661,24 +1680,26 @@ impl PhysicalPlanner {
                     })
                     .collect();
 
-                // Add the array column as the last column
                 let array_field = child_expr
                     .return_field(&child_schema)
                     .expect("Failed to get field from array expression");
                 let array_col_name = array_field.name().to_string();
+
+                if explode.position {
+                    let positions_expr: Arc<dyn PhysicalExpr> =
+                        Arc::new(ListPositionsExpr::new(Arc::clone(&child_expr)));
+                    project_exprs.push((positions_expr, "pos".to_string()));
+                }
                 project_exprs.push((Arc::clone(&child_expr), array_col_name.clone()));
 
-                // Create a projection to arrange columns as needed
                 let project_exec = Arc::new(ProjectionExec::try_new(
                     project_exprs,
                     Arc::clone(&child.native_plan),
                 )?);
 
-                // Get the input schema from the projection
                 let project_schema = project_exec.schema();
 
                 // Build the output schema for UnnestExec
-                // The output schema replaces the list column with its element type
                 let mut output_fields: Vec<Field> = Vec::new();
 
                 // Add all projection columns (non-array columns)
@@ -1686,9 +1707,17 @@ impl PhysicalPlanner {
                     output_fields.push(project_schema.field(i).clone());
                 }
 
-                // Add the unnested array element field
+                let array_input_index = if explode.position {
+                    // With outer=true, UnnestExec preserves rows whose array is empty or NULL
+                    // and emits a NULL position for them, so pos must be nullable in that case.
+                    output_fields.push(Field::new("pos", DataType::Int32, explode.outer));
+                    projections.len() + 1
+                } else {
+                    projections.len()
+                };
+
                 // Extract the element type from the list/array type
-                let array_field = project_schema.field(projections.len());
+                let array_field = project_schema.field(array_input_index);
                 let element_type = match array_field.data_type() {
                     DataType::List(field) => field.data_type().clone(),
                     dt => {
@@ -1699,8 +1728,6 @@ impl PhysicalPlanner {
                     }
                 };
 
-                // The output column has the same name as the input array column
-                // but with the element type instead of the list type
                 output_fields.push(Field::new(
                     array_field.name(),
                     element_type,
@@ -1709,12 +1736,17 @@ impl PhysicalPlanner {
 
                 let output_schema = Arc::new(Schema::new(output_fields));
 
-                // Use UnnestExec to explode the last column (the array column)
-                // ListUnnest specifies which column to unnest and the depth (1 for single level)
-                let list_unnest = ListUnnest {
-                    index_in_input_schema: projections.len(), // Index of the array column to unnest
-                    depth: 1, // Unnest one level (explode single array)
-                };
+                let mut list_unnests = Vec::with_capacity(2);
+                if explode.position {
+                    list_unnests.push(ListUnnest {
+                        index_in_input_schema: projections.len(),
+                        depth: 1,
+                    });
+                }
+                list_unnests.push(ListUnnest {
+                    index_in_input_schema: array_input_index,
+                    depth: 1,
+                });
 
                 let unnest_options = UnnestOptions {
                     preserve_nulls: explode.outer,
@@ -1723,7 +1755,7 @@ impl PhysicalPlanner {
 
                 let unnest_exec = Arc::new(UnnestExec::new(
                     project_exec,
-                    vec![list_unnest],
+                    list_unnests,
                     vec![], // No struct columns to unnest
                     output_schema,
                     unnest_options,
@@ -1859,7 +1891,7 @@ impl PhysicalPlanner {
                         hash_join.as_ref().swap_inputs(PartitionMode::Partitioned)?;
 
                     let mut additional_native_plans = vec![];
-                    if swapped_hash_join.as_any().is::<ProjectionExec>() {
+                    if swapped_hash_join.is::<ProjectionExec>() {
                         // a projection was added to the hash join
                         additional_native_plans.push(Arc::clone(swapped_hash_join.children()[0]));
                     }
@@ -2922,8 +2954,7 @@ impl PhysicalPlanner {
                             &boundary_row.partition_bounds[col_idx],
                             Arc::clone(&input_schema),
                         )?;
-                        let literal_expr =
-                            expr.as_any().downcast_ref::<Literal>().expect("Literal");
+                        let literal_expr = expr.downcast_ref::<Literal>().expect("Literal");
                         col_values.push(literal_expr.value().clone());
                     }
                 }
@@ -3033,12 +3064,7 @@ impl PhysicalPlanner {
                     // TODO this should try and find scalar
                     let arguments = args
                         .iter()
-                        .map(|e| {
-                            e.as_ref()
-                                .as_any()
-                                .downcast_ref::<Literal>()
-                                .map(|lit| lit.value())
-                        })
+                        .map(|e| e.as_ref().downcast_ref::<Literal>().map(|lit| lit.value()))
                         .collect::<Vec<_>>();
 
                     let args = ReturnFieldArgs {
@@ -3142,7 +3168,7 @@ fn expr_to_columns(
 
     expr.apply(&mut |expr: &Arc<dyn PhysicalExpr>| {
         Ok({
-            if let Some(column) = expr.as_any().downcast_ref::<Column>() {
+            if let Some(column) = expr.downcast_ref::<Column>() {
                 if column.index() > left_field_len + right_field_len {
                     return Err(DataFusionError::Internal(format!(
                         "Column index {} out of range",
@@ -3249,7 +3275,7 @@ impl TreeNodeRewriter for JoinFilterRewriter<'_> {
     type Node = Arc<dyn PhysicalExpr>;
 
     fn f_down(&mut self, node: Self::Node) -> datafusion::common::Result<Transformed<Self::Node>> {
-        if let Some(column) = node.as_any().downcast_ref::<Column>() {
+        if let Some(column) = node.downcast_ref::<Column>() {
             if column.index() < self.left_field_len {
                 // left side
                 let new_index = self

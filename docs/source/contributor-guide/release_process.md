@@ -57,8 +57,9 @@ instructions on each step.
 Before starting the release process, review the user guide to ensure it accurately reflects the current state of the
 project:
 
-- Review the supported expressions and operators lists in the user guide. Verify that any expressions added since
-  the last release are included and that their support status is accurate.
+- Review the [Spark Expression Support](../user-guide/latest/expressions.md) page and the supported operators list
+  in the user guide. The expression page is the source of truth for expression support status, so verify that any
+  expressions added or changed since the last release appear there with an accurate status (✅ / ⚠️ / 🔜 / 💤).
 - Spot-check the support status of individual expressions by running tests or queries to confirm they work as
   documented.
 - Look for any expressions that may have regressed or changed behavior since the last release and update the
@@ -150,7 +151,7 @@ example generates a change log of all changes between the previous version and t
 
 ```shell
 export GITHUB_TOKEN=<your-token-here>
-python3 generate-changelog.py 0.12.0 HEAD 0.13.0 > ../changelog/0.13.0.md
+python3 generate-changelog.py 0.12.0 HEAD 0.13.0 > ../../docs/source/changelog/0.13.0.md
 ```
 
 Create a PR against the _main_ branch to add this change log and once this is approved and merged, cherry-pick the
