@@ -31,7 +31,7 @@ license = "Apache-2.0"
 edition = "2021"
 
 # Comet uses the same minimum Rust version as DataFusion
-rust-version = "1.88"
+rust-version = "1.89"
 
 [workspace.dependencies]
 arrow = { version = "58.3.0", features = ["prettyprint", "ffi", "chrono-tz"] }
@@ -75,6 +75,6 @@ strip = "debuginfo"
 inherits = "release"
 lto = false          # Skip LTO for faster linking
 codegen-units = 16   # Parallel codegen (faster compile, slightly larger binary)
-debug-assertions = true
+debug-assertions = false
 panic = "unwind"     # Allow panics to be caught and logged across FFI boundary
 # overflow-checks inherited as false from release
