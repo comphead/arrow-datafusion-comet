@@ -40,6 +40,20 @@ Here is an overview of the changes that the diffs make to Iceberg:
 [#5259]: https://github.com/apache/datafusion-comet/issues/5259
 [apache/iceberg#15674]: https://github.com/apache/iceberg/pull/15674
 
+To run all of the steps below as CI runs them, without retyping them, use `dev/local-ci.sh`:
+
+```shell
+dev/local-ci.sh iceberg              # steps 1 to 3, every target the workflow runs
+dev/local-ci.sh iceberg shard-2      # one shard of the core test job
+dev/local-ci.sh iceberg 1.9 shard-2  # against a non-default Iceberg version
+```
+
+The version defaults to the one the merge queue gates on. The script reads the Iceberg and Spark
+versions, the Scala version and the shard count out of the workflow files, so a local shard
+selects the classes the CI shard of the same index selects. See
+[Continuous Integration](ci.md#reproducing-a-suite-failure-locally). The manual steps below are
+still the reference, and are what you want when updating a diff.
+
 ## 1. Install Comet
 
 Run `make release` in Comet to install the Comet JAR into the local Maven repository, specifying the Spark version.

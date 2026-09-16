@@ -246,11 +246,41 @@ nightly suites, if you need a result before the next scheduled run.
 
 ## Reproducing a suite failure locally
 
-The Spark SQL suites outside the PR tier run Spark's own test suite against Comet, with the
-version's diff from `dev/diffs/` applied. See [Spark SQL Tests](spark-sql-tests.md) for how to run
-one locally, and [Iceberg Spark Tests](iceberg-spark-tests.md) for the Iceberg equivalents. For the
-Comet test suites that run on macOS, `make test-jvm` on a Mac runs the same suites the workflow
-does; the macOS job differs from Linux only in the platform.
+`dev/local-ci.sh` builds the same sandbox a runner builds and runs the Spark SQL or Iceberg
+workflow:
+
+```sh
+dev/local-ci.sh spark                # everything the Spark job runs
+dev/local-ci.sh spark sql_core-1     # just the shard that failed
+dev/local-ci.sh iceberg              # everything the Iceberg job runs
+dev/local-ci.sh iceberg shard-2
+```
+
+The version defaults to the one the merge queue gates on, which is the newest one Comet fully
+supports. It is read from `POLICY` in `dev/ci/compute-changes.py`, so a version bump needs no
+change to the script. Every other version is nightly-tier, so name one explicitly to reproduce a
+nightly failure:
+
+```sh
+dev/local-ci.sh spark 3.5 sql_core-1
+dev/local-ci.sh iceberg 1.9
+```
+
+It prepares first (native build, Comet install, patched clone under
+`$COMET_LOCAL_CI_HOME`, default `~/comet-local-ci`) and then runs the tests. `SKIP_PREPARE=1`
+skips straight to the tests when the sandbox is already current. The matrix rows and the shard
+count are read from the workflow files and from `dev/ci/`, so a local shard runs what the CI shard
+of the same name runs.
+
+Two things to know. The prepare step runs `rm -rf ~/.m2/repository/org/apache/parquet`, which is
+what the workflows do and what the artifacts re-download from. And CI runs x86_64 Linux with
+`-Ctarget-cpu=x86-64-v3`, so a pass on another architecture covers Scala, serde and planner
+behavior but is not proof for x86-specific native codegen.
+
+The underlying steps are documented in [Spark SQL Tests](spark-sql-tests.md) and
+[Iceberg Spark Tests](iceberg-spark-tests.md), which are also where the diff-regeneration workflow
+lives. For the Comet test suites that run on macOS, `make test-jvm` on a Mac runs the same suites
+the workflow does. The macOS job differs from Linux only in the platform.
 
 ## Changing CI itself
 
