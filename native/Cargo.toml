@@ -100,23 +100,24 @@ reqsign-core = "3"
 
 # One DataFusion for the whole graph. datafusion-spark depends on DataFusion branch-56, and Comet
 # and the contrib crates on DataFusion main. These entries replace every DataFusion crate that any
-# of them names directly with DataFusion main. Cargo rejects a patch that points at the
-# URL it patches, so the entries use the repository's former name, which GitHub redirects to
-# apache/datafusion. Remove this section once datafusion-spark builds against the same DataFusion.
+# of them names directly with the head of apache/datafusion#27278 (filtered sort-merge join late
+# materialization, based on DataFusion main 14b3edd9a), for benchmarking TPC-DS q72. Cargo rejects
+# a patch that points at the URL it patches, so the entries use the pull request's fork.
+# Remove this section once datafusion-spark builds against the same DataFusion.
 [patch."https://github.com/apache/datafusion"]
-datafusion = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-common = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-datasource = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-doc = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-expr = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-functions = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-functions-aggregate = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-functions-aggregate-common = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-functions-nested = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-macros = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-physical-expr-adapter = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-physical-expr-common = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
-datafusion-session = { git = "https://github.com/apache/arrow-datafusion", branch = "main" }
+datafusion = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-common = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-datasource = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-doc = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-expr = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-functions = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-functions-aggregate = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-functions-aggregate-common = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-functions-nested = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-macros = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-physical-expr-adapter = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-physical-expr-common = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
+datafusion-session = { git = "https://github.com/comphead/arrow-datafusion", rev = "dd437c166b29bd5ced196d0c526074c4c3399245" }
 
 [profile.release]
 debug = true
